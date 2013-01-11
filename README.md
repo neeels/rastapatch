@@ -13,8 +13,11 @@ I am not a Rasta in any way; the colors I chose to colorize the diffs,
 completely by random, ended up resembling "rasta colors", that's all.
 
 The project home page is http://hofmeyr.de/rastapatch/
-Source available at https://github.com/neeels/rastapatch
+
+Source is available at https://github.com/neeels/rastapatch
 
 Usage:
+
   rastapatch myfix.patch
+
   svn diff | rastapatch - | less -R

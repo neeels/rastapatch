@@ -243,6 +243,8 @@ def match_lines(ll, rr):
       leftline = lll[0]
       del lll[0]
     r.append( (leftline, rightline) )
+  for leftline in lll:
+    r.append( (leftline, None) )
   return r
 
 def color_match_lines(ll, rr):

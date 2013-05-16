@@ -21,3 +21,6 @@ Usage:
   rastapatch myfix.patch
 
   svn diff | rastapatch - | less -R
+
+TODO: rastapatch is not streamy yet, i.e. it reads the entire input before
+      starting to print its output.

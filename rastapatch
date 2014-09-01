@@ -189,7 +189,7 @@ def col_right(s):
   return colored(s, 'green')
 
 def col_left_matching(s):
-  return colored(s, 'grey')
+  return colored(s, 'blue')
 
 def col_right_matching(s):
   return s #colored(s, 'blue')

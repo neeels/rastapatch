@@ -432,3 +432,4 @@ if __name__ == '__main__':
 
   print_left_right_lines();
 
+# vim: tabstop=2 shiftwidth=2 expandtab nocindent autoindent

@@ -54,6 +54,7 @@
 """ANSII Color formatting for output in terminal."""
 
 import os
+import re
 
 
 __ALL__ = [ 'colored' ]
@@ -194,6 +195,9 @@ def col_left_matching(s):
 def col_right_matching(s):
   return s #colored(s, 'blue')
 
+def col_err(s):
+  return colored(s, None, 'on_red')
+
 def split_lines(a, b):
   s = SequenceMatcher(None, a, b)
   ai = 0
@@ -219,6 +223,7 @@ def split_lines(a, b):
 def color_diffs(a, b):
   aa = []
   bb = []
+
   for mismatches, match in split_lines(a, b):
     if mismatches[0] is not None:
       aa.append( col_left(mismatches[0]) )
@@ -324,7 +329,8 @@ def match_lines(ll, rr):
       reasonable_shift = rr_lines_remain - ll_lines_remain
       reasonable_shift += ll_lines_remain / 3
       if reasonable_shift > 0:
-        skip_r_lines = find_best_similarity(left_line, rr, rr_pos, reasonable_shift + 1)
+        best_match_idx = find_best_similarity(left_line, rr, rr_pos, reasonable_shift + 1)
+        skip_r_lines = best_match_idx - rr_pos
         for n in range(skip_r_lines):
           ret.append((None, rr[rr_pos]))
           rr_pos += 1
@@ -353,6 +359,95 @@ def color_match_lines(ll, rr):
         r.append( ( None, col_right(right) ) )
   return r
 
+re_ansi_color = re.compile(r'\033\[([0-9]+)m')
+re_whitespace_error = re.compile(r'[ \t]+$| +\t')
+def mark_whitespace_errors(line):
+  if len(line) < 1:
+    return line
+
+  # This is not trivial to get right. ANSI coloring for whitespace errors and for the
+  # patch colorization interfere with each other. We don't want to evaluate whitespace
+  # error coloring as patch differences. But also, once patch diff colors are in the
+  # string, we can no longer reliably detect whitespace errors (if there are colors
+  # at line ends or between spaces/tabs). So the only way is to first extract existing
+  # colors, then detect whitespace errors, then combine coloring later.
+
+  colorless = []
+  colorless_pos = 0
+  line_pos = 0
+  colors = []
+
+  for m in re_ansi_color.finditer(line):
+    colorless_section = line[line_pos:m.start()]
+    colorless.append( colorless_section )
+    colorless_pos += len(colorless_section)
+    color = int(m.group(1))
+    colors.append((colorless_pos, color))
+    line_pos = m.end()
+
+  colorless.append(line[line_pos:])
+  line = ''.join(colorless)
+
+  # ok, now find whitespace errors.
+  # we're outputting diffs, so the leading space of unchanged diff output doesn't count
+  for m in re_whitespace_error.finditer(line[1:]):
+    # override that part with the red background color
+    err_start = 1 + m.start()
+    err_end = 1 + m.end()
+
+    prev_color = 0
+    new_colors = []
+    started_err = False
+    c = 0
+    while c < len(colors):
+      c_pos, c_col = colors[c]
+      if c_pos <= err_start:
+        # up to the error's start, copy colors over as normal
+        prev_color = c_col
+        new_colors.append((c_pos, c_col))
+      elif c_pos < err_end:
+        # up to the error's end, just remember the last color
+        prev_color = c_col
+      else:
+        break;
+      c += 1
+
+    new_colors.append((err_start, HIGHLIGHTS['on_red']))
+    new_colors.append((err_end, 0))
+    if prev_color:
+      new_colors.append((err_end, prev_color))
+
+    # now copy all those after the whitespace error as normal
+    while c < len(colors):
+      c_pos, c_col = colors[c]
+      c += 1
+      if c_pos < err_end:
+        continue
+      new_colors.append((c_pos, c_col))
+
+    colors = new_colors
+
+  # now weave those colors back in
+  bits = []
+  pos = 0
+  last_col = 0
+  for c_pos, c_col in colors:
+    if c_pos > pos:
+      bits.append(line[pos:c_pos])
+    bits.append('\033[%dm' % c_col)
+    last_col = c_col
+    pos = c_pos
+
+  bits.append(line[pos:])
+  if last_col:
+    bits.append(RESET)
+
+  return ''.join(bits)
+
+
+def output(line):
+  print mark_whitespace_errors(line)
+
 if __name__ == '__main__':
 
   path_arg = 0
@@ -379,18 +474,6 @@ if __name__ == '__main__':
     path = argv[path_arg]
     infile = open(path)
 
-  #lines = infile.readlines()
-  #leftlines = []
-  #rightlines = []
-  #
-  #for i, line in enumerate(lines):
-  #  if not line:
-  #    continue
-  #  if line[0] == '-':
-  #    leftlines.append(i)
-  #  elif line[0] == '+':
-  #    rightlines.append(i)
-
   leftlines = []
   rightlines = []
 
@@ -399,17 +482,17 @@ if __name__ == '__main__':
       matched = color_match_lines(leftlines, rightlines)
       for ll,rl in matched:
         if ll is not None:
-          print ll
+          output(ll)
       for ll,rl in matched:
         if rl is not None:
-          print rl
+          output(rl)
     else:
       for ll in leftlines:
         if ll is not None:
-          print col_left(ll)
+          output(col_left(ll))
       for rl in rightlines:
         if rl is not None:
-          print col_right(rl)
+          output(col_right(rl))
 
 
   for line in infile.readlines():
@@ -426,9 +509,9 @@ if __name__ == '__main__':
       rightlines = []
       
       if line.startswith('@@ '):
-        print col_heads(line)
+        output(col_heads(line))
       else:
-        print line
+        output(line)
 
   print_left_right_lines();
 

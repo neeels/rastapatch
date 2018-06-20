@@ -233,19 +233,113 @@ def color_diffs(a, b):
         bb.append( col_right_matching(match) )
   return (''.join(aa), ''.join(bb))
 
+def lines_similarity(l, r):
+  mismatch_count = 0
+  match_count = 0
+  for mismatches, match in split_lines(l, r):
+    ml, mr = mismatches
+    mismatch_count += max(len(ml or ''), len(mr or ''))
+    match_count += len(match or '')
+
+  if not (match_count + mismatch_count):
+    ret = 1.0
+  else:
+    ret = float(match_count) / (match_count + mismatch_count)
+  return ret
+
+def find_best_similarity(find_line, in_list, from_idx, for_len):
+  best_match_idx = from_idx
+  best_match_score = 0
+  for_len = min(for_len, len(in_list) - from_idx)
+  for l_idx in range(from_idx, for_len):
+    score = lines_similarity(find_line, in_list[l_idx])
+    if score > best_match_score:
+      best_match_score = score
+      best_match_idx = l_idx
+  return best_match_idx
+
 def match_lines(ll, rr):
-  r = []
-  lll = []
-  lll.extend(ll)
-  for rightline in rr:
-    leftline = None
-    if lll:
-      leftline = lll[0]
-      del lll[0]
-    r.append( (leftline, rightline) )
-  for leftline in lll:
-    r.append( (leftline, None) )
-  return r
+  ret = []
+  # avoid modifying rr list
+  ll_pos = 0
+  rr_pos = 0
+
+  # find the best match where to start off matching ll to rr.
+  # A common pattern is removing lots of lines before a change, like
+  #
+  # --- ll
+  # +++ rr
+  # - foo();
+  # - bar();
+  # - baz();
+  # - val = 23;
+  # - call_function(val);
+  # + call_function();
+  #
+  # Now we want the 'call_function' lines to match up, instead of matching the
+  # '- foo();' with '+ call_function();', so the user gets the benefit of
+  # colored indication of the similarity of the 'call_function' lines.
+  #
+  # But also, if the patch moved a very early line all the way to the bottom
+  # of a diff chunk, don't skip the start just for one line. Try to maintain
+  # a reasonable amount of remaining lines for rr and ll to match up later.
+
+  ll_lines_remain = len(ll)
+  rr_lines_remain = len(rr) - rr_pos
+
+  reasonable_shift = ll_lines_remain - rr_lines_remain
+  reasonable_shift += rr_lines_remain / 3
+  if reasonable_shift > 0:
+    rr_start = find_best_similarity(rr[0], ll, 0, reasonable_shift + 1)
+    for n in range(rr_start):
+      ret.append((ll[ll_pos], None))
+      ll_pos += 1
+
+  while ll_pos < len(ll):
+    right_line = None
+    ll_lines_remain = len(ll) - ll_pos
+    rr_lines_remain = len(rr) - rr_pos
+
+    left_line = ll[ll_pos]
+    ll_pos += 1
+
+    if rr_lines_remain:
+      # find the best match where left_line matches a line in rr.
+      # A common pattern is adding a line before a change, like
+      #
+      # --- ll
+      # +++ rr
+      # - call_function();
+      # + val = 23;
+      # + call_function(val);
+      #
+      # Now we want the 'call_function' lines to match up, instead of matching the
+      # '- call_function();' with '+ val = 23;', so the user gets the benefit of
+      # colored indication of the similarity of the 'call_function' lines.
+      #
+      # But also, if the patch moved a very early line all the way to the bottom
+      # of a diff chunk, don't skip the start just for one line. Try to maintain
+      # a reasonable amount of remaining lines for rr and ll to match up later.
+
+      reasonable_shift = rr_lines_remain - ll_lines_remain
+      reasonable_shift += ll_lines_remain / 3
+      if reasonable_shift > 0:
+        skip_r_lines = find_best_similarity(left_line, rr, rr_pos, reasonable_shift + 1)
+        for n in range(skip_r_lines):
+          ret.append((None, rr[rr_pos]))
+          rr_pos += 1
+
+      right_line = rr[rr_pos]
+      rr_pos += 1
+
+    ret.append((left_line, right_line))
+
+  # if ll ended before rr was through
+  for rr_end in range(len(rr) - rr_pos):
+    ret.append((None, rr[rr_pos]))
+    rr_pos += 1
+
+  return ret
 
 def color_match_lines(ll, rr):
   r = []

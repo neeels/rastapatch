@@ -3,14 +3,14 @@
 #
 # Rastapatch
 # ==========
-# 
+#
 # A patch file colorizer. Highlights changed words (as good as it can guess) in
 # unidiff patch files.
-# 
+#
 # (c) Copyright 2012-2014 by Neels Janosch Hofmeyr <neels@hofmeyr.de> (GPLv3)
-# 
+#
 # This file is part of Rastapatch file colorizer.
-# 
+#
 # The following three paragraphs of licensing information do not apply to the
 # part included from termcolor.py, which is clearly marked with its own terms.
 #
@@ -18,12 +18,12 @@
 # modify it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or (at your
 # option) any later version.
-# 
+#
 # Rastapatch file colorizer is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
 # Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along with
 # Rastapatch file colorizer.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -507,7 +507,7 @@ if __name__ == '__main__':
       print_left_right_lines()
       leftlines = []
       rightlines = []
-      
+
       if line.startswith('@@ '):
         output(col_heads(line))
       else:

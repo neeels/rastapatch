@@ -255,7 +255,7 @@ def lines_similarity(l, r):
 def find_best_similarity(find_line, in_list, from_idx, for_len):
   best_match_idx = from_idx
   best_match_score = 0
-  for_len = min(for_len, len(in_list) - from_idx)
+  for_len = min(int(for_len), len(in_list) - from_idx)
   for l_idx in range(from_idx, for_len):
     score = lines_similarity(find_line, in_list[l_idx])
     if score > best_match_score:
